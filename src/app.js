@@ -1,5 +1,6 @@
 import express from "express"
 import cors from "cors"
+import dayjs from "dayjs"
 
 // Criação do App Servidor
 const app = express()
@@ -17,8 +18,8 @@ app.post("/participants", (req, res) => {
     const { name } = req.body
 
     const newUser = {
-        id: participants.length + 1,
-        name
+        name,
+        lastStatus: Date.now()
     }
     participants.push(newUser)
     res.send("OK")
@@ -31,15 +32,24 @@ app.get("/participants", (req, res) => {
 app.post("/messages", (req, res) => {
     const { to, text, type } = req.body
 
-    const newMessage = { id: messages.length + 1, to, text, type }
+    const newMessage = {
+        to,
+        text,
+        type,
+        time: dayjs().format('HH:mm:ss')
+    }
 
     messages.push(newMessage)
 
-    res.send("OK")
+    res.sendStatus(201)
 })
 
 app.get("/messages", (req, res) => {
     res.send(messages)
+})
+
+app.post("/status", (req, res) => {
+    res.send(console.log(req.headers))
 })
 
 const PORT = 5000 // Disponíveis: 3000 à 5999
