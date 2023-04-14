@@ -1,7 +1,7 @@
 import express from "express"
 import cors from "cors"
 import dayjs from "dayjs"
-import { MongoClient } from "mongodb"
+import { MongoClient, ObjectId } from "mongodb"
 import dotenv from "dotenv"
 
 // Criação do App Servidor
@@ -13,49 +13,58 @@ app.use(express.json()) // Os dados que trocarem com o cliente estarão em forma
 dotenv.config()
 
 // Listas
-const messages = []
 
 // Conexão com banco de dados
 let db
-const mongoClient = new MongoClient(process.env.DATABASE_URL)
+const mongoClient = new MongoClient("mongodb://localhost:27017/batePapoUol")
 mongoClient.connect()
     .then(() => db = mongoClient.db())
     .catch((err) => console.log(err.message))
 
 // Endpoints
-app.post("/participants", (req, res) => {
+app.post("/participants", async (req, res) => {
     const { name } = req.body
 
     const newUser = { name, lastStatus: Date.now() }
-
-    db.collection("participants").insertOne(newUser)
-        .then(() => res.sendStatus(201))
-        .catch((err) => res.status(500).send(err.message))
-})
-
-app.get("/participants", (req, res) => {
-    db.collection("participants").find().toArray()
-        .then(participants => res.send(participants))
-        .catch((err) => res.status(500).send(err.message))
-})
-
-app.post("/messages", (req, res) => {
-    const { to, text, type } = req.body
-
-    const newMessage = {
-        to,
-        text,
-        type,
-        time: dayjs().format('HH:mm:ss')
+    try {
+        await db.collection("participants").insertOne(newUser)
+        res.sendStatus(201)
+    } catch (err) {
+        res.status(500).send(err.message)
     }
-
-    messages.push(newMessage)
-
-    res.sendStatus(201)
 })
 
-app.get("/messages", (req, res) => {
-    res.send(messages)
+app.get("/participants", async (req, res) => {
+
+    try {
+        const participants = await db.collection("participants").find().toArray()
+        res.send(participants)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+})
+
+app.post("/messages", async (req, res) => {
+    const { to, text, type } = req.body
+    const from = req.headers.user
+    console.log(req.headers)
+    const newMessage = { from, to, text, type, time: dayjs().format('HH:mm:ss') }
+    try {
+        await db.collection("messages").insertOne(newMessage)
+        res.sendStatus(201)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+})
+
+app.get("/messages", async (req, res) => {
+    const limit = parseInt(req.query.limit)
+    try {
+        const messages = await db.collection("messages").find().toArray()
+        res.send(messages)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
 })
 
 app.post("/status", (req, res) => {
