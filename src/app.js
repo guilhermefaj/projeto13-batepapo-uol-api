@@ -58,7 +58,6 @@ app.post("/messages", async (req, res) => {
 })
 
 app.get("/messages", async (req, res) => {
-    const limit = parseInt(req.query.limit)
     try {
         const messages = await db.collection("messages").find().toArray()
         res.send(messages)
@@ -68,8 +67,25 @@ app.get("/messages", async (req, res) => {
 })
 
 app.post("/status", (req, res) => {
-    res.send(console.log(req.headers))
+    const { user } = req.headers
+
+    if (!user) {
+        res.sendStatus(404)
+    }
 })
+
+//remoção automática de usuários inativos
+
+const removeParticipants = async () => {
+    try {
+        const cutoffTime = Date.now() - 10000
+        const result = await db.collection("participants").deleteMany({ lastStatus: { $lt: cutoffTime } })
+    } catch (err) {
+        console.log(err.message)
+    }
+}
+
+setInterval(removeParticipants, 15000)
 
 const PORT = 5000 // Disponíveis: 3000 à 5999
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
