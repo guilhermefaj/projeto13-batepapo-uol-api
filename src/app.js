@@ -32,6 +32,7 @@ const db = await connectToDatabase();
 // Endpoints
 app.post("/participants", async (req, res) => {
     req.body.lastStatus = Date.now()
+    const { name } = req.body
 
     const participantsSchema = joi.object({
         name: joi.string().required(),
@@ -52,7 +53,18 @@ app.post("/participants", async (req, res) => {
         }
 
         await db.collection("participants").insertOne(req.body)
-        res.sendStatus(201)
+
+        const messageData = {
+            from: name,
+            to: 'Todos',
+            text: 'entra na sala...',
+            type: 'status',
+            time: dayjs().format("HH:mm:ss")
+        }
+
+        await db.collection("messages").insertOne(messageData)
+
+        res.status(201).send("participante adicionado")
     } catch (err) {
         res.status(500).send(err.message)
     }
@@ -103,8 +115,7 @@ app.post("/messages", async (req, res) => {
 
 app.get("/messages", async (req, res) => {
     const limit = req.query.limit
-
-    const user = req.headers.user
+    const { user } = req.headers
 
     if (limit !== undefined) {
         if (isNaN(parseInt(limit)) || parseInt(limit) <= 0) {
@@ -154,10 +165,33 @@ const removeParticipants = async () => {
     try {
         const cutoffTime = Date.now() - 10000
         const result = await db.collection("participants").deleteMany({ lastStatus: { $lt: cutoffTime } })
+
+        const removedParticipants = result.deletedCount
+
+        if (removedParticipants > 0) {
+            const removedParticipantsList = await db.collection("participants").find({}).limit(removedParticipants).toArray()
+
+            const currentTime = dayjs().format("HH:mm:ss")
+
+            removedParticipantsList.forEach(async (participant) => {
+                const messageData = {
+                    from: participant.name,
+                    to: 'Todos',
+                    text: 'sai da sala...',
+                    type: 'status',
+                    time: currentTime
+                }
+
+                await db.collection("messages").insertOne(messageData)
+            })
+
+            console.log(`${removedParticipants} participantes removidos.`)
+        }
     } catch (err) {
         console.log(err.message)
     }
 }
+
 
 setInterval(removeParticipants, 15000)
 
